@@ -1,0 +1,246 @@
+Spring boot Security
+---------------
+1) Create s spring boot application using Spring initializer
+      start.spring.io
+
+2) Project name
+       spring-security-demo
+
+3)dependencies
+    spring web
+    spring security
+    dev tools
+
+4)Create a Rest Controller 
+      MyController : / Hello world
+
+    	 @RestController
+	 public class MyController {
+		@GetMapping("/")
+		public String home() {
+			return "Hello Kranthi - this is spring security demo";
+	     }
+          }
+
+5) Run the application
+     http://localhost:8080/
+
+   what do you expect ?
+
+   - Normally we get  o/p : Helli Kranthi
+
+   - but, now we get Login page    (http://localhost:8080/Login)          l 
+                   -username
+                   -password 
+
+     this is because we added spring-security dependency in pom.xm
+    		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+   - if you remove spring-security or commenting it in pom.xml now u will see  o/p Hello Kranthi
+     of Rest Api
+
+   *Why login has come whenever i access any url? This is becoz of "SecurityAutoConfiguration"
+
+6) @SpringBootApplication(exclude = SecurityAutoConfiguration.class) (it is like disabling security dependency)
+  
+  - above annotation will exclude spring security login page & 
+                      opens Rest controller service  - localhost:8080
+  - create product & customer rest service methods also & try accessing it with urls
+    http://localhost:8080/
+    http://localhost:8080/product
+    http://localhost:8080/customer
+
+ Upto now we displayed only login page & but did not configured it
+
+-----------Login Credentials---
+
+ if username is "kranthi"
+    password is "hitman"
+  
+    then login should be successfull
+ 
+ - WebSecurityConfigurerAdaper
+   	User
+   	UserDetails
+   	UserDetailsService
+  
+   These classes are already present in the security starter dependency.
+
+7) Create (MyConfiguration.java) class:  
+            extends WebSecurityConfigurerAdapter
+             - overide unimplemented methods in adapter
+                rightlcick -> source -> over unimplemented methods -> configure(AuthenticationManagerBuilder)
+      
+   - annotation @Configuration
+   - @Autowire MyUserDetailsService in config  
+    
+ ------
+       @Configuration
+	public class MyConfiguration extends WebSecurityConfigurerAdapter{
+  
+		@Autowired
+		private MyUserDetailsService userDetailsService;
+	
+		@Override
+		protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+			//super.configure(auth);
+		
+			auth.userDetailsService(userDetailsService);
+		}
+
+		@Bean
+		public PasswordEncoder passwordEncoder() {
+		 
+			return  NoOpPasswordEncoder.getInstance();
+		}
+	}
+   ------
+
+    -> if there is no PasswordEncoder it shows error : no PasswordEncoder mapped for id "null"
+
+8) Create service class (MyUserDetailsService.java) :
+                                 implements UserDetailsService
+                            - add unimplemented methods & overide it
+
+    - annotation @Service
+    - load username & password 
+  -------
+	@Service
+	public class MyUserDetailsService implements UserDetailsService {
+
+		@Override
+		public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+			// TODO Auto-generated method stub
+			return new User("kranthi","hitman", new ArrayList<>());
+		 
+		}
+	}
+  --------
+     
+    -> here User is loaded by Username if Username is found it will send/load object of that user with
+       username & password
+
+9) Run application 
+    login using  
+            username : kranthi
+            password : hitman
+       
+        -- successfully loged in  & then try accessing rest contreollers using above URLS
+                  &
+         if u give wrong details shows as Bad credentials
+
+---------------------------------------Now multiple Users & pswd login using MySQL db--------------
+
+By safety i have created another new project by extending to above project
+   
+     project :  SpringSecurityMysqlDemo2Application
+
+10) Add spring-data-JPA & MySQL connector jar dependencies
+     
+             <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>5.1.47</version>
+		</dependency>
+
+                <dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+			<version>2.2.2.RELEASE</version>
+		</dependency>
+
+11) Open (application.properties):
+        
+        spring.datasource.driver-class-name=com.mysql.jdbc.Driver
+	spring.datasource.url=jdbc:mysql://localhost:3306/kranthis
+	spring.datasource.username=root
+	spring.datasource.password=Ks_961796
+
+	spring.datasource.hikari.connection-timeout=20000
+	spring.datasource.hikari.minimum-idle=5
+	spring.datasource.hikari.maximum-pool-size=12
+	spring.datasource.hikari.idle-timeout=300000
+	spring.datasource.hikari.max-lifetime=1200000
+
+	spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.MySQLDialect
+	spring.jpa.properties.hibernate.id.new_generator_mappings = false
+	spring.jpa.properties.hibernate.format_sql = true
+	spring.jpa.properties.hibernate.ddl-auto=update
+	spring.jpa.properties.hibernate.naming.physical- 	              strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+
+	logging.level.org.hibernate.SQL=DEBUG
+	logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+
+below 3 class important for this:
+
+ -UserRepository
+ -MyUserDetailsService
+ 
+12) Create repository (UserRepository): 
+              -extends JpaRepository
+              -@Repository
+   ex:
+        @Repository
+	public interface UserRepository extends JpaRepository<MyUser, String>
+	{
+	
+	}
+
+13) Open service class(MyUserDetailsService.java):  (edit previous project loadUserByUsername() method)
+             - implements UserDetailsService
+             - @Service
+             - @Autowired  UserRepository ur;
+
+--------   
+	@Service
+	public class MyUserDetailsService implements UserDetailsService
+	    {
+		@Autowired
+		private UserRepository ur;
+	
+		@Override
+		public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+			//return new User("kranthi","hitman", new ArrayList<>());
+		          return ur.findById(username).get();		
+		}
+	    }
+---------- 	
+
+       -load user by username, it will find userid,pswd with primary key (username) & if it finds in MySQL db
+         then return that user object.
+
+14) Open model class (MyUser.java): 
+        -write annoatations @Entity, @Table & @Id 
+
+    ex:
+-------
+	@Entity
+	@Table(name = "user")
+	public class MyUser extends User
+	  {
+		@Id
+		private String username;
+                private String password;
+---------
+
+15) Run the project as SpringBoot app, here if JPA will not create table automatic in MySqldb then we create it
+      
+   Open MySQL:
+     		create table user(
+			username varchar(20),
+			password varchar(20)
+		      );
+                  insert into user values("rohith","sharma");   // enter users & passwords in db diretly
+
+    -we can give access to any number of users, pswd in db by inserting values.
+
+16) check localhost:
+          
+         http://localhost:8080/login
+    
+   -once login we can check any rest api controller services using URL
+   -login is remembered untill spring-security-project is stopped running in STS
